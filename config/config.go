@@ -2,8 +2,8 @@ package config
 
 import (
 	"bufio"
-	"github.com/yangshaobooo/goRedis/lib/logger"
-	"github.com/yangshaobooo/goRedis/lib/utils"
+	"goRedis/lib/logger"
+	"goRedis/lib/utils"
 	"io"
 	"os"
 	"path/filepath"
