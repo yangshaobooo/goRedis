@@ -18,8 +18,8 @@ import (
 
 // EchoHandler echos received line to client,using for test
 type EchoHandler struct {
-	activeConn sync.Map
-	closing    atomic.Boolean
+	activeConn sync.Map       // record connection
+	closing    atomic.Boolean // record this EchoHandler is closing
 }
 
 // MakeEchoHandler creates EchoHandler
@@ -30,12 +30,12 @@ func MakeEchoHandler() *EchoHandler {
 // EchoClient is client for EchoHandler,using for test
 type EchoClient struct {
 	Conn    net.Conn
-	Waiting wait.Wait
+	Waiting wait.Wait // 自己封装的一个wait包，主要是添加了超时功能
 }
 
 // Close closing connection
 func (c *EchoClient) Close() error {
-	c.Waiting.WaitWithTimeout(10 * time.Second) // 超时就关闭
+	c.Waiting.WaitWithTimeout(10 * time.Second) // 等待一段时间之后再关闭
 	c.Conn.Close()
 	return nil
 }

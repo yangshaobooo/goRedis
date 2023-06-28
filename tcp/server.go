@@ -25,9 +25,9 @@ var ClientCounter int
 
 // ListenAndServeWithSignal binds port and handle requests,blocking until receive stop signal
 func ListenAndServeWithSignal(cfg *Config, handler tcp.Handler) error {
-	closeChan := make(chan struct{})
+	closeChan := make(chan struct{}) // empty struct as signal
 	sigCh := make(chan os.Signal)
-	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT) // get system signal
 	go func() {
 		sig := <-sigCh
 		switch sig {
@@ -35,6 +35,7 @@ func ListenAndServeWithSignal(cfg *Config, handler tcp.Handler) error {
 			closeChan <- struct{}{}
 		}
 	}()
+	// start listen
 	listener, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
 		return err
@@ -62,7 +63,7 @@ func ListenAndServe(listener net.Listener, handler tcp.Handler, closeChan <-chan
 	}()
 	ctx := context.Background()
 	var waitDone sync.WaitGroup // waitGroup保证在协程结束之前，主函数不会结束
-	for {
+	for {                       // 死循环等着accept
 		conn, err := listener.Accept() // 建立连接
 		if err != nil {
 			errCh <- err
