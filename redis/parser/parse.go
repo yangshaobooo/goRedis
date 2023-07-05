@@ -5,7 +5,6 @@ import (
 	"errors"
 	"goRedis/interface/redis"
 	"io"
-	"strconv"
 )
 
 /* 把客服端发来的消息进行解析*/
@@ -70,15 +69,15 @@ func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 
 func parseMultiBulkHeader(msg []byte, state *readState) error {
 	var err error
-	var expectedLine uint64
-	expectedLine, err = strconv.ParseUint(string(msg[1:len(msg)-2]), 10, 32)
-	if err != nil {
-		return errors.New("protocol error: " + string(msg))
-	}
-	if expectedLine == 0 {
-		state.expectedArgsCount = 0
-	} else if expectedLine > 0 {
-		state.expectedArgsCount = int(expectedLine)
-	}
+	//var expectedLine uint64
+	//expectedLine, err = strconv.ParseUint(string(msg[1:len(msg)-2]), 10, 32)
+	//if err != nil {
+	//	return errors.New("protocol error: " + string(msg))
+	//}
+	//if expectedLine == 0 {
+	//	state.expectedArgsCount = 0
+	//} else if expectedLine > 0 {
+	//	state.expectedArgsCount = int(expectedLine)
+	//}
 	return err
 }
