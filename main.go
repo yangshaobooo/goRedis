@@ -5,6 +5,7 @@ import (
 	"goRedis/config"
 	"goRedis/lib/logger"
 	"goRedis/lib/utils"
+	"goRedis/redis/server"
 	"goRedis/tcp"
 	"os"
 )
@@ -54,7 +55,7 @@ func main() {
 	// 开启监听
 	err := tcp.ListenAndServeWithSignal(&tcp.Config{
 		Address: fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
-	}, tcp.MakeEchoHandler())
+	}, server.MakeHandler())
 	if err != nil {
 		logger.Error(err)
 	}

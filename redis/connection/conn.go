@@ -14,6 +14,11 @@ type Connection struct {
 	selectedDB   int
 }
 
+func NewConn(conn net.Conn) *Connection {
+	return &Connection{
+		conn: conn,
+	}
+}
 func (c *Connection) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
