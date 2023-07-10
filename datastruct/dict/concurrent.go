@@ -2,8 +2,11 @@ package dict
 
 import (
 	"math"
+	"math/rand"
+	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // ConcurrentDict is thread safe map using sharding lock
@@ -319,16 +322,119 @@ func (shard *shard) RandomKey() string {
 }
 
 // RandomKeys randomly returns keys of the given number, may contain duplicated key
-//func (dict *ConcurrentDict) RandomKeys(limit int) []string {
-//
-//}
-
-func (dict *ConcurrentDict) RandomDistinctKeys(limit int) []string {
-	//TODO implement me
-	panic("implement me")
+func (dict *ConcurrentDict) RandomKeys(limit int) []string {
+	size := dict.Len()
+	if limit >= size {
+		return dict.keys() // 超过dict的大小，直接返回所有的key
+	}
+	shardCount := len(dict.table)
+	result := make([]string, limit)
+	nR := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < limit; {
+		s := dict.getShard(uint32(nR.Intn(shardCount))) // 随机映射一个map
+		if s == nil {
+			continue
+		}
+		key := s.RandomKey() // 从当前map中获取一个key
+		if key != "" {
+			result[i] = key
+			i++
+		}
+	}
+	return result
 }
 
+// RandomDistinctKeys randomly returns keys of the given number, won't contain duplicated key
+func (dict *ConcurrentDict) RandomDistinctKeys(limit int) []string {
+	size := dict.Len()
+	if limit >= size {
+		return dict.keys()
+	}
+	shardCount := len(dict.table)
+	result := make(map[string]struct{})
+	nR := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for len(result) < limit {
+		shardIndex := uint32(nR.Intn(shardCount))
+		s := dict.getShard(shardIndex)
+		if s == nil {
+			continue
+		}
+		key := s.RandomKey()
+		for key != "" {
+			if _, exists := result[key]; !exists {
+				result[key] = struct{}{}
+			}
+		}
+	}
+	arr := make([]string, limit)
+	i := 0
+	for k := range result {
+		arr[i] = k
+		i++
+	}
+	return arr
+}
+
+// Clear removes all keys in dict
 func (dict *ConcurrentDict) Clear() {
-	//TODO implement me
-	panic("implement me")
+	*dict = *MakeConcurrent(dict.shardCount)
+}
+
+func (dict *ConcurrentDict) toLockIndices(keys []string, reverse bool) []uint32 {
+	indexMap := make(map[uint32]struct{}) //代码创建了一个空的映射 indexMap，用于存储分片索引index
+	for _, key := range keys {
+		index := dict.spread(fnv32(key))
+		indexMap[index] = struct{}{}
+	}
+	indices := make([]uint32, 0, len(indexMap))
+	for index := range indexMap {
+		indices = append(indices, index)
+	}
+	sort.Slice(indices, func(i, j int) bool {
+		if !reverse {
+			return indices[i] < indices[j]
+		}
+		return indices[i] > indices[j]
+	})
+	return indices
+}
+
+// RWLocks locks write keys and read keys together. allow duplicate keys
+func (dict *ConcurrentDict) RWLocks(writeKeys []string, readKeys []string) {
+	keys := append(writeKeys, readKeys...)
+	indices := dict.toLockIndices(keys, false)
+	writeIndexSet := make(map[uint32]struct{})
+	for _, wKey := range writeKeys {
+		idx := dict.spread(fnv32(wKey))
+		writeIndexSet[idx] = struct{}{}
+	}
+	for _, index := range indices {
+		_, w := writeIndexSet[index]
+		mu := &dict.table[index].mutex
+		if w {
+			mu.Lock() // 写的加写锁
+		} else {
+			mu.RLock() // 读的加读锁
+		}
+	}
+}
+
+// RWUnlocks unlocks write keys and read keys together. allow duplicate keys
+func (dict *ConcurrentDict) RWUnLocks(writeKeys []string, readKeys []string) {
+	keys := append(writeKeys, readKeys...)
+	indices := dict.toLockIndices(keys, true)
+	writeIndexSet := make(map[uint32]struct{})
+	for _, wkey := range writeKeys {
+		idx := dict.spread(fnv32(wkey))
+		writeIndexSet[idx] = struct{}{}
+	}
+	for _, index := range indices {
+		_, w := writeIndexSet[index]
+		mu := &dict.table[index].mutex
+		if w {
+			mu.Unlock()
+		} else {
+			mu.RUnlock()
+		}
+	}
 }
