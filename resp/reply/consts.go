@@ -1,4 +1,4 @@
-package protocol
+package reply
 
 /*
 用于实现一些固定的redis回复
@@ -10,7 +10,7 @@ type PongReply struct{}
 
 var pongBytes = []byte("+PONG\r\n") // 正常回复用+开头
 
-// ToBytes marshal redis reply
+// ToBytes marshal resp reply
 func (p *PongReply) ToBytes() []byte {
 	return pongBytes
 }
@@ -24,7 +24,7 @@ type OkReply struct{}
 
 var okBytes = []byte("+OK\r\n")
 
-// ToBytes marshal redis reply
+// ToBytes marshal resp reply
 func (r *OkReply) ToBytes() []byte {
 	return okBytes
 }
@@ -40,7 +40,7 @@ type NullBulkReply struct{}
 
 var nullBulkBytes = []byte("$-1\r\n")
 
-// ToBytes marshal redis reply
+// ToBytes marshal resp reply
 func (n *NullBulkReply) ToBytes() []byte {
 	return nullBulkBytes
 }
@@ -54,7 +54,7 @@ type EmptyMultiBulkReply struct{}
 
 var emptyMultiBulkReply = []byte("*0\r\n")
 
-// ToBytes marshal redis reply
+// ToBytes marshal resp reply
 func (e *EmptyMultiBulkReply) ToBytes() []byte {
 	return emptyMultiBulkReply
 }
@@ -68,7 +68,7 @@ type NoReply struct{}
 
 var noBytes = []byte("")
 
-// ToBytes marshal redis reply
+// ToBytes marshal resp reply
 func (n NoReply) ToBytes() []byte {
 	return noBytes
 }

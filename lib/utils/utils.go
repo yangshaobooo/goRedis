@@ -58,7 +58,7 @@ func BytesEquals(a []byte, b []byte) bool {
 	return true
 }
 
-// ConvertRange converts redis index to go slice index
+// ConvertRange converts resp index to go slice index
 // -1 => size-1
 // both inclusive [0, 10] => left inclusive right exclusive [0, 9)
 // out of bound to max inbound [size, size+1] => [-1, -1]

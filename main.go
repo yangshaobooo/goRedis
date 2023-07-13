@@ -5,7 +5,7 @@ import (
 	"goRedis/config"
 	"goRedis/lib/logger"
 	"goRedis/lib/utils"
-	"goRedis/redis/server"
+	"goRedis/resp/server"
 	"goRedis/tcp"
 	"os"
 )
@@ -44,8 +44,8 @@ func main() {
 	// 设置配置文件
 	configFilename := os.Getenv("CONFIG")
 	if configFilename == "" {
-		if fileExists("redis.conf") {
-			config.SetupConfig("redis.conf")
+		if fileExists("resp.conf") {
+			config.SetupConfig("resp.conf")
 		} else {
 			config.Properties = defaultProperties
 		}

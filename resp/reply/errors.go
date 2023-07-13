@@ -1,4 +1,4 @@
-package protocol
+package reply
 
 // -----1、回复未知错误-----
 
@@ -28,7 +28,7 @@ func (a *ArgNumErrReply) ToBytes() []byte {
 	return []byte("-ERR wrong number of arguments for '" + a.Cmd + "' command\r\n")
 }
 
-func MakeRagNumErrReply(cmd string) *ArgNumErrReply {
+func MakeArgNumErrReply(cmd string) *ArgNumErrReply {
 	return &ArgNumErrReply{
 		Cmd: cmd,
 	}
@@ -58,7 +58,7 @@ type WrongTypeErrReply struct{}
 
 var wrongTypeErrBytes = []byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n")
 
-// ToBytes marshals redis.Reply
+// ToBytes marshals resp.Reply
 func (r *WrongTypeErrReply) ToBytes() []byte {
 	return wrongTypeErrBytes
 }
@@ -74,7 +74,7 @@ type ProtocolErrReply struct {
 	Msg string
 }
 
-// ToBytes marshals redis.Reply
+// ToBytes marshals resp.Reply
 func (r *ProtocolErrReply) ToBytes() []byte {
 	return []byte("-ERR Protocol error: '" + r.Msg + "'\r\n")
 }

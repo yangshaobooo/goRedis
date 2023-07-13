@@ -3,9 +3,9 @@ package parser
 import (
 	"bufio"
 	"errors"
-	"goRedis/interface/redis"
+	"goRedis/interface/resp"
 	"goRedis/lib/logger"
-	"goRedis/redis/protocol"
+	"goRedis/resp/reply"
 	"io"
 	"runtime/debug"
 	"strconv"
@@ -14,9 +14,9 @@ import (
 
 /* 把客服端发来的消息进行解析*/
 
-// Payload stores redis.Reply or error
+// Payload stores resp.Reply or error
 type Payload struct {
-	Data redis.Reply // 客户端发送的消息和服务端回复的是一样的，所以公用reply
+	Data resp.Reply // 客户端发送的消息和服务端回复的是一样的，所以公用reply
 	Err  error
 }
 
@@ -62,7 +62,7 @@ func parse0(reader io.Reader, ch chan<- *Payload) {
 				close(ch)
 				return
 			}
-			// protocol err, reset read state
+			// reply err, reset read state
 			ch <- &Payload{
 				Err: err,
 			}
@@ -78,14 +78,14 @@ func parse0(reader io.Reader, ch chan<- *Payload) {
 				err = parseMultiBulkHeader(msg, &state)
 				if err != nil {
 					ch <- &Payload{
-						Err: errors.New("protocol error: " + string(msg)),
+						Err: errors.New("reply error: " + string(msg)),
 					}
 					state = readState{} // reset state
 					continue
 				}
 				if state.expectedArgsCount == 0 {
 					ch <- &Payload{
-						Data: &protocol.EmptyMultiBulkReply{},
+						Data: &reply.EmptyMultiBulkReply{},
 					}
 					state = readState{} // reset state
 					continue
@@ -94,14 +94,14 @@ func parse0(reader io.Reader, ch chan<- *Payload) {
 				err = parseBulkHeader(msg, &state)
 				if err != nil {
 					ch <- &Payload{
-						Err: errors.New("protocol error: " + string(msg)),
+						Err: errors.New("reply error: " + string(msg)),
 					}
 					state = readState{} // reset state
 					continue
 				}
 				if state.bulkLen == -1 { // null bulk reply
 					ch <- &Payload{
-						Data: &protocol.NullBulkReply{},
+						Data: &reply.NullBulkReply{},
 					}
 					state = readState{} // reset state
 					continue
@@ -121,18 +121,18 @@ func parse0(reader io.Reader, ch chan<- *Payload) {
 			err = readBody(msg, &state)
 			if err != nil {
 				ch <- &Payload{
-					Err: errors.New("protocol error: " + string(msg)),
+					Err: errors.New("reply error: " + string(msg)),
 				}
 				state = readState{} // reset state
 				continue
 			}
 			// if sending finished
 			if state.finished() {
-				var result redis.Reply
+				var result resp.Reply
 				if state.msgType == '*' {
-					result = protocol.MakeMultiBulkReply(state.args)
+					result = reply.MakeMultiBulkReply(state.args)
 				} else if state.msgType == '$' {
-					result = protocol.MakeBulkReply(state.args[0])
+					result = reply.MakeBulkReply(state.args[0])
 				}
 				ch <- &Payload{
 					Data: result,
@@ -153,7 +153,7 @@ func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 			return nil, true, err
 		}
 		if len(msg) == 0 || msg[len(msg)-2] != '\r' {
-			return nil, false, errors.New("protocol error: " + string(msg))
+			return nil, false, errors.New("reply error: " + string(msg))
 		}
 	} else { // read bulk line (binary safe)
 		msg = make([]byte, state.bulkLen+2)
@@ -164,7 +164,7 @@ func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 		if len(msg) == 0 ||
 			msg[len(msg)-2] != '\r' ||
 			msg[len(msg)-1] != '\n' {
-			return nil, false, errors.New("protocol error: " + string(msg))
+			return nil, false, errors.New("reply error: " + string(msg))
 		}
 		state.bulkLen = 0
 	}
@@ -176,7 +176,7 @@ func parseMultiBulkHeader(msg []byte, state *readState) error {
 	var expectedLine uint64
 	expectedLine, err = strconv.ParseUint(string(msg[1:len(msg)-2]), 10, 32)
 	if err != nil {
-		return errors.New("protocol error: " + string(msg))
+		return errors.New("reply error: " + string(msg))
 	}
 	if expectedLine == 0 {
 		state.expectedArgsCount = 0
@@ -189,7 +189,7 @@ func parseMultiBulkHeader(msg []byte, state *readState) error {
 		state.args = make([][]byte, 0, expectedLine)
 		return nil
 	} else {
-		return errors.New("protocol error: " + string(msg))
+		return errors.New("reply error: " + string(msg))
 	}
 }
 
@@ -197,7 +197,7 @@ func parseBulkHeader(msg []byte, state *readState) error {
 	var err error
 	state.bulkLen, err = strconv.ParseInt(string(msg[1:len(msg)-2]), 10, 64)
 	if err != nil {
-		return errors.New("protocol error: " + string(msg))
+		return errors.New("reply error: " + string(msg))
 	}
 	if state.bulkLen == -1 { // null bulk
 		return nil
@@ -208,24 +208,24 @@ func parseBulkHeader(msg []byte, state *readState) error {
 		state.args = make([][]byte, 0, 1)
 		return nil
 	} else {
-		return errors.New("protocol error: " + string(msg))
+		return errors.New("reply error: " + string(msg))
 	}
 }
 
-func parseSingleLineReply(msg []byte) (redis.Reply, error) {
+func parseSingleLineReply(msg []byte) (resp.Reply, error) {
 	str := strings.TrimSuffix(string(msg), "\r\n")
-	var result redis.Reply
+	var result resp.Reply
 	switch msg[0] {
 	case '+': // status reply
-		result = protocol.MakeStatusReply(str[1:])
+		result = reply.MakeStatusReply(str[1:])
 	case '-': // err reply
-		result = protocol.MakeErrReply(str[1:])
+		result = reply.MakeErrReply(str[1:])
 	case ':': // int reply
 		val, err := strconv.ParseInt(str[1:], 10, 64)
 		if err != nil {
-			return nil, errors.New("protocol error: " + string(msg))
+			return nil, errors.New("reply error: " + string(msg))
 		}
-		result = protocol.MakeIntReply(val)
+		result = reply.MakeIntReply(val)
 	}
 	return result, nil
 }
@@ -238,7 +238,7 @@ func readBody(msg []byte, state *readState) error {
 		// bulk reply
 		state.bulkLen, err = strconv.ParseInt(string(line[1:]), 10, 64)
 		if err != nil {
-			return errors.New("protocol error: " + string(msg))
+			return errors.New("reply error: " + string(msg))
 		}
 		if state.bulkLen <= 0 { // null bulk in multi bulks
 			state.args = append(state.args, []byte{})

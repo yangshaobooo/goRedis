@@ -1,14 +1,14 @@
-package protocol
+package reply
 
 import (
 	"bytes"
-	"goRedis/interface/redis"
+	"goRedis/interface/resp"
 	"strconv"
 )
 
 var (
 	nullBulkReplyBytes = []byte("$-1")
-	// CRLF is the line separator of redis serialization protocol
+	// CRLF is the line separator of resp serialization reply
 	CRLF = "\r\n"
 )
 
@@ -71,13 +71,13 @@ func MakeStatusReply(status string) *StatusReply {
 	}
 }
 
-// ToBytes marshal redis.Reply
+// ToBytes marshal resp.Reply
 func (r *StatusReply) ToBytes() []byte {
 	return []byte("+" + r.Status + CRLF)
 }
 
-// IsOKReply returns true if the given protocol is +OK
-func IsOKReply(reply redis.Reply) bool {
+// IsOKReply returns true if the given reply is +OK
+func IsOKReply(reply resp.Reply) bool {
 	return string(reply.ToBytes()) == "+OK\r\n"
 }
 
@@ -88,21 +88,21 @@ type IntReply struct {
 	Code int64
 }
 
-// MakeIntReply creates int protocol
+// MakeIntReply creates int reply
 func MakeIntReply(code int64) *IntReply {
 	return &IntReply{
 		Code: code,
 	}
 }
 
-// ToBytes marshal redis.Reply
+// ToBytes marshal resp.Reply
 func (r *IntReply) ToBytes() []byte {
 	return []byte(":" + strconv.FormatInt(r.Code, 10) + CRLF)
 }
 
 // ----- 5、err reply 错误回复-----
 
-// ErrorReply is an error and redis.Reply
+// ErrorReply is an error and resp.Reply
 type ErrorReply interface {
 	Error() string
 	ToBytes() []byte
@@ -120,7 +120,7 @@ func MakeErrReply(status string) *StandardErrReply {
 	}
 }
 
-// ToBytes marshal redis.Reply
+// ToBytes marshal resp.Reply
 func (r *StandardErrReply) ToBytes() []byte {
 	return []byte("-" + r.Status + CRLF)
 }
@@ -129,8 +129,8 @@ func (r *StandardErrReply) Error() string {
 	return r.Status
 }
 
-// IsErrorReply returns true if the given protocol is error
-func IsErrorReply(reply redis.Reply) bool {
+// IsErrorReply returns true if the given reply is error
+func IsErrorReply(reply resp.Reply) bool {
 	return reply.ToBytes()[0] == '-'
 }
 
@@ -138,17 +138,17 @@ func IsErrorReply(reply redis.Reply) bool {
 
 // MultiRawReply store complex list structure, for example GeoPos command
 type MultiRawReply struct {
-	Replies []redis.Reply
+	Replies []resp.Reply
 }
 
 // MakeMultiRawReply creates MultiRawReply
-func MakeMultiRawReply(replies []redis.Reply) *MultiRawReply {
+func MakeMultiRawReply(replies []resp.Reply) *MultiRawReply {
 	return &MultiRawReply{
 		Replies: replies,
 	}
 }
 
-// ToBytes marshal redis.Reply
+// ToBytes marshal resp.Reply
 func (r *MultiRawReply) ToBytes() []byte {
 	argLen := len(r.Replies)
 	var buf bytes.Buffer

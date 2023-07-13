@@ -399,43 +399,42 @@ func (dict *ConcurrentDict) toLockIndices(keys []string, reverse bool) []uint32 
 	return indices
 }
 
-//
-//// RWLocks locks write keys and read keys together. allow duplicate keys
-//func (dict *ConcurrentDict) RWLocks(writeKeys []string, readKeys []string) {
-//	keys := append(writeKeys, readKeys...)
-//	indices := dict.toLockIndices(keys, false)
-//	writeIndexSet := make(map[uint32]struct{})
-//	for _, wKey := range writeKeys {
-//		idx := dict.spread(fnv32(wKey))
-//		writeIndexSet[idx] = struct{}{}
-//	}
-//	for _, index := range indices {
-//		_, w := writeIndexSet[index]
-//		mu := &dict.table[index].mutex
-//		if w {
-//			mu.Lock() // 写的加写锁
-//		} else {
-//			mu.RLock() // 读的加读锁
-//		}
-//	}
-//}
-//
-//// RWUnlocks unlocks write keys and read keys together. allow duplicate keys
-//func (dict *ConcurrentDict) RWUnLocks(writeKeys []string, readKeys []string) {
-//	keys := append(writeKeys, readKeys...)
-//	indices := dict.toLockIndices(keys, true)
-//	writeIndexSet := make(map[uint32]struct{})
-//	for _, wkey := range writeKeys {
-//		idx := dict.spread(fnv32(wkey))
-//		writeIndexSet[idx] = struct{}{}
-//	}
-//	for _, index := range indices {
-//		_, w := writeIndexSet[index]
-//		mu := &dict.table[index].mutex
-//		if w {
-//			mu.Unlock()
-//		} else {
-//			mu.RUnlock()
-//		}
-//	}
-//}
+// RWLocks locks write keys and read keys together. allow duplicate keys
+func (dict *ConcurrentDict) RWLocks(writeKeys []string, readKeys []string) {
+	keys := append(writeKeys, readKeys...)
+	indices := dict.toLockIndices(keys, false)
+	writeIndexSet := make(map[uint32]struct{})
+	for _, wKey := range writeKeys {
+		idx := dict.spread(fnv32(wKey))
+		writeIndexSet[idx] = struct{}{}
+	}
+	for _, index := range indices {
+		_, w := writeIndexSet[index]
+		mu := &dict.table[index].mutex
+		if w {
+			mu.Lock() // 写的加写锁
+		} else {
+			mu.RLock() // 读的加读锁
+		}
+	}
+}
+
+// RWUnlocks unlocks write keys and read keys together. allow duplicate keys
+func (dict *ConcurrentDict) RWUnLocks(writeKeys []string, readKeys []string) {
+	keys := append(writeKeys, readKeys...)
+	indices := dict.toLockIndices(keys, true)
+	writeIndexSet := make(map[uint32]struct{})
+	for _, wkey := range writeKeys {
+		idx := dict.spread(fnv32(wkey))
+		writeIndexSet[idx] = struct{}{}
+	}
+	for _, index := range indices {
+		_, w := writeIndexSet[index]
+		mu := &dict.table[index].mutex
+		if w {
+			mu.Unlock()
+		} else {
+			mu.RUnlock()
+		}
+	}
+}

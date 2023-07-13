@@ -1,6 +1,6 @@
-package redis
+package resp
 
-// Connection represents a connection with redis client
+// Connection represents a connection with resp client
 type Connection interface {
 	Write([]byte) error
 	GetDBIndex() int

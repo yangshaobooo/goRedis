@@ -6,9 +6,9 @@ import (
 	databaaseface "goRedis/interface/database"
 	"goRedis/lib/logger"
 	"goRedis/lib/sync/atomic"
-	"goRedis/redis/connection"
-	"goRedis/redis/parser"
-	"goRedis/redis/protocol"
+	"goRedis/resp/connection"
+	"goRedis/resp/parser"
+	"goRedis/resp/reply"
 	"io"
 	"net"
 	"strings"
@@ -28,7 +28,8 @@ type RespHandler struct {
 func MakeHandler() *RespHandler {
 	var db databaaseface.Database
 
-	db = database.NewEchoDatabase()
+	//db = database.NewEchoDatabase()
+	db = database.NewDatabase()
 	return &RespHandler{
 		db: db,
 	}
@@ -56,8 +57,8 @@ func (r *RespHandler) Handle(ctx context.Context, conn net.Conn) {
 				logger.Info("connection closed: " + client.RemoteAddr().String())
 				return
 			}
-			// protocol error
-			errReply := protocol.MakeErrReply(payload.Err.Error())
+			// reply error
+			errReply := reply.MakeErrReply(payload.Err.Error())
 			err := client.Write(errReply.ToBytes())
 			if err != nil {
 				r.closeClient(client)
@@ -70,7 +71,7 @@ func (r *RespHandler) Handle(ctx context.Context, conn net.Conn) {
 		if payload.Data == nil {
 			continue
 		}
-		reply, ok := payload.Data.(*protocol.MultiBulkReply)
+		reply, ok := payload.Data.(*reply.MultiBulkReply)
 		if !ok {
 			logger.Error("require multi bulk reply")
 			continue
