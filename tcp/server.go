@@ -41,7 +41,7 @@ func ListenAndServeWithSignal(cfg *Config, handler tcp.Handler) error {
 		return err
 	}
 	logger.Info(fmt.Sprintf("bind:%s,start listening...", cfg.Address))
-	ListenAndServe(listener, handler, closeChan)
+	ListenAndServe(listener, handler, closeChan) // 端口信息  tcp.handler 函数   关闭信号
 	return nil
 }
 
@@ -51,15 +51,15 @@ func ListenAndServe(listener net.Listener, handler tcp.Handler, closeChan <-chan
 	errCh := make(chan error, 1) // 接收错误信号
 	defer close(errCh)
 	go func() {
-		select {
+		select { // 阻塞在这里，等待关闭或者err信号
 		case <-closeChan: // 系统关闭
 			logger.Info("get exit signal")
 		case er := <-errCh: // 出现error
 			logger.Info(fmt.Sprintf("accept error:%s", er.Error()))
 		}
 		logger.Info("shutting down...")
-		_ = listener.Close() // listener.Accept() will return err immediately
-		_ = handler.Close()  // close connections
+		_ = listener.Close() // listener.Accept() will return err immediately  立刻不接受连接了
+		_ = handler.Close()  // close connections  关闭连接
 	}()
 	ctx := context.Background()
 	var waitDone sync.WaitGroup // waitGroup保证在协程结束之前，主函数不会结束

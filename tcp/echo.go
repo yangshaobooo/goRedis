@@ -35,7 +35,7 @@ type EchoClient struct {
 
 // Close closing connection
 func (c *EchoClient) Close() error {
-	c.Waiting.WaitWithTimeout(10 * time.Second) // 等待一段时间之后再关闭
+	c.Waiting.WaitWithTimeout(10 * time.Second) // 如果数据没有发送完成，最多可以等待10s的时间
 	c.Conn.Close()
 	return nil
 }
@@ -44,7 +44,7 @@ func (c *EchoClient) Close() error {
 func (h *EchoHandler) Close() error {
 	logger.Info("handler shutting down...")
 	h.closing.Set(true)
-	h.activeConn.Range(func(key, value interface{}) bool {
+	h.activeConn.Range(func(key, value interface{}) bool { // 逐个关闭client
 		Client := key.(*EchoClient)
 		_ = Client.Close()
 		return true

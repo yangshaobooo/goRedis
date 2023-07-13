@@ -10,13 +10,7 @@ import (
 	"os"
 )
 
-var banner = `
-   ______          ___
-  / ____/___  ____/ (_)____
- / / __/ __ \/ __  / / ___/
-/ /_/ / /_/ / /_/ / (__  )
-\____/\____/\__,_/_/____/
-`
+var banner = `goRedis prepare to start`
 
 var defaultProperties = &config.ServerProperties{
 	Bind:           "0.0.0.0",
@@ -33,11 +27,11 @@ func fileExists(filename string) bool {
 }
 
 func main() {
-	print(banner)
+	fmt.Println(banner)
 	// 设置日志的输出位置和名字
 	logger.Setup(&logger.Settings{
 		Path:       "logs",
-		Name:       "godis",
+		Name:       "goRedis",
 		Ext:        "log",
 		TimeFormat: "2006-01-02",
 	})
@@ -47,6 +41,7 @@ func main() {
 		if fileExists("resp.conf") {
 			config.SetupConfig("resp.conf")
 		} else {
+			fmt.Println("goRedis start with default properties")
 			config.Properties = defaultProperties
 		}
 	} else {
