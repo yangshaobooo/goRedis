@@ -30,6 +30,7 @@ type readState struct {
 }
 
 // ParseStream reads data form io.Reader and send payloads through channel
+// net.Conn 类型实现了 io.Reader 接口，这意味着可以使用 net.Conn 类型的对象作为 io.Reader 类型的参数
 func ParseStream(reader io.Reader) <-chan *Payload {
 	ch := make(chan *Payload)
 	go parse0(reader, ch) // 为了异步的做协议的解析
