@@ -45,7 +45,7 @@ func main() {
 			config.Properties = defaultProperties
 		}
 	} else {
-		config.SetupConfig(configFilename)
+		//config.SetupConfig(configFilename)
 	}
 	// 开启监听
 	err := tcp.ListenAndServeWithSignal(&tcp.Config{
