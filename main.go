@@ -15,8 +15,8 @@ var banner = `goRedis prepare to start`
 var defaultProperties = &config.ServerProperties{
 	Bind:           "0.0.0.0",
 	Port:           6399,
-	AppendOnly:     false,
-	AppendFilename: "",
+	AppendOnly:     true,
+	AppendFilename: "appendonly.aof",
 	MaxClients:     1000,
 	RunID:          utils.RandString(40),
 }

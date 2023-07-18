@@ -14,8 +14,9 @@ const (
 
 // DB store data and execute user's commands
 type DB struct {
-	index int
-	data  dict.Dict
+	index  int
+	data   dict.Dict
+	addAof func(CmdLine)
 }
 
 // ExecFunc is interface for command executor
@@ -29,7 +30,8 @@ type CmdLine = [][]byte
 func makeDB() *DB {
 	db := &DB{
 		//data: dict.MakeSyncDict(),
-		data: dict.MakeConcurrent(dataDictSize),
+		data:   dict.MakeConcurrent(dataDictSize),
+		addAof: func(line CmdLine) {},
 	}
 	return db
 }
