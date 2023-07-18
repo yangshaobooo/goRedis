@@ -32,14 +32,14 @@ func makeDB() *DB {
 // Exec executes command within one database
 func (db *DB) Exec(c resp.Connection, cmdLine [][]byte) resp.Reply {
 	cmdName := strings.ToLower(string(cmdLine[0]))
-	cmd, ok := cmdTable[cmdName]
+	cmd, ok := cmdTable[cmdName] // 这里是一个注册的函数表，根据命令名字获取对应的函数
 	if !ok {
 		return reply.MakeErrReply("ERR unknown command '" + cmdName + "'")
 	}
-	if !validateArity(cmd.arity, cmdLine) {
+	if !validateArity(cmd.arity, cmdLine) { // 验证这个命令的参数个数，arity为期望的参数，
 		return reply.MakeArgNumErrReply(cmdName)
 	}
-	fun := cmd.executor
+	fun := cmd.executor // 获取的函数的执行器
 	return fun(db, cmdLine[1:])
 
 }

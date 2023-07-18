@@ -40,8 +40,8 @@ func (mdb *Database) Exec(c resp.Connection, cmdLine [][]byte) (result resp.Repl
 		}
 	}()
 
-	cmdName := strings.ToLower(string(cmdLine[0]))
-	if cmdName == "select" {
+	cmdName := strings.ToLower(string(cmdLine[0])) // 选取命令的第一个单词
+	if cmdName == "select" {                       // 这里是选择数据库
 		if len(cmdLine) != 2 {
 			return reply.MakeArgNumErrReply("select")
 		}
@@ -49,7 +49,7 @@ func (mdb *Database) Exec(c resp.Connection, cmdLine [][]byte) (result resp.Repl
 	}
 	// normal commands
 	dbIndex := c.GetDBIndex()
-	selectedDB := mdb.dbSet[dbIndex]
+	selectedDB := mdb.dbSet[dbIndex] // 选择使用0-15哪个数据库
 	return selectedDB.Exec(c, cmdLine)
 }
 

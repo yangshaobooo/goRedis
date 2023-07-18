@@ -3,6 +3,7 @@ package parser
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"goRedis/interface/resp"
 	"goRedis/lib/logger"
 	"goRedis/resp/reply"
@@ -54,7 +55,8 @@ func parse0(reader io.Reader, ch chan<- *Payload) {
 	for {
 		// read line
 		var ioErr bool
-		msg, ioErr, err = readLine(bufReader, &state)
+		msg, ioErr, err = readLine(bufReader, &state) // 以\r\n为结尾的一个个读出来
+		fmt.Printf("msg is %s\n", msg)
 		if err != nil {
 			if ioErr { // encounter io err, stop read
 				ch <- &Payload{
@@ -172,10 +174,11 @@ func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 	return msg, false, nil
 }
 
+// parseMultiBulkHeader 处理多个数组输入
 func parseMultiBulkHeader(msg []byte, state *readState) error {
 	var err error
 	var expectedLine uint64
-	expectedLine, err = strconv.ParseUint(string(msg[1:len(msg)-2]), 10, 32)
+	expectedLine, err = strconv.ParseUint(string(msg[1:len(msg)-2]), 10, 32) // 获取*后面的数字，需要输入数组的个数
 	if err != nil {
 		return errors.New("reply error: " + string(msg))
 	}
