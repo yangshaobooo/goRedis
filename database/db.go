@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+const (
+	dataDictSize = 1 << 16
+)
+
 // DB store data and execute user's commands
 type DB struct {
 	index int
@@ -24,7 +28,8 @@ type CmdLine = [][]byte
 // makeDB create DB instance
 func makeDB() *DB {
 	db := &DB{
-		data: dict.MakeSyncDict(),
+		//data: dict.MakeSyncDict(),
+		data: dict.MakeConcurrent(dataDictSize),
 	}
 	return db
 }
