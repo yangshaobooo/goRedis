@@ -10,11 +10,11 @@ func ToCmdLine(cmd ...string) [][]byte {
 }
 
 // ToCmdLine2 convert commandName and string-type argument to [][]byte
-func ToCmdLine2(commandName string, args ...[]byte) [][]byte {
+func ToCmdLine2(commandName string, args ...string) [][]byte {
 	result := make([][]byte, len(args)+1)
 	result[0] = []byte(commandName)
 	for i, s := range args {
-		result[i+1] = s
+		result[i+1] = []byte(s)
 	}
 	return result
 }

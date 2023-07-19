@@ -15,7 +15,7 @@ func execDel(db *DB, args [][]byte) resp.Reply {
 
 	deleted := db.Removes(keys...)
 	if deleted > 0 {
-		db.addAof(utils.ToCmdLine2("del", args...))
+		db.addAof(utils.ToCmdLine3("del", args...))
 	}
 	return reply.MakeIntReply(int64(deleted))
 }
@@ -36,7 +36,7 @@ func execExists(db *DB, args [][]byte) resp.Reply {
 // execFlushDB removes all data in current db
 func execFlushDB(db *DB, args [][]byte) resp.Reply {
 	db.Flush()
-	db.addAof(utils.ToCmdLine2("flushdb", args...))
+	db.addAof(utils.ToCmdLine3("flushdb", args...))
 	return &reply.OkReply{}
 }
 
@@ -68,7 +68,7 @@ func execRename(db *DB, args [][]byte) resp.Reply {
 	}
 	db.PutEntity(dest, entity)
 	db.Remove(src)
-	db.addAof(utils.ToCmdLine2("rename", args...))
+	db.addAof(utils.ToCmdLine3("rename", args...))
 	return &reply.OkReply{}
 }
 
@@ -88,7 +88,7 @@ func execRenameNx(db *DB, args [][]byte) resp.Reply {
 	}
 	db.Removes(src, dest) // clean src and dest with their ttl
 	db.PutEntity(dest, entity)
-	db.addAof(utils.ToCmdLine2("renamenx", args...))
+	db.addAof(utils.ToCmdLine3("renamenx", args...))
 	return reply.MakeIntReply(1)
 }
 

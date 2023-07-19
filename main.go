@@ -21,6 +21,8 @@ var defaultProperties = &config.ServerProperties{
 	RunID:          utils.RandString(40),
 }
 
+const configFile string = "redis.conf"
+
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	return err == nil && !info.IsDir()
@@ -36,16 +38,10 @@ func main() {
 		TimeFormat: "2006-01-02",
 	})
 	// 设置配置文件
-	configFilename := os.Getenv("CONFIG")
-	if configFilename == "" {
-		if fileExists("resp.conf") {
-			config.SetupConfig("resp.conf")
-		} else {
-			fmt.Println("goRedis start with default properties")
-			config.Properties = defaultProperties
-		}
+	if fileExists(configFile) {
+		config.SetupConfig(configFile)
 	} else {
-		config.SetupConfig(configFilename)
+		config.Properties = defaultProperties
 	}
 	// 开启监听
 	err := tcp.ListenAndServeWithSignal(&tcp.Config{
