@@ -58,7 +58,7 @@ func NewAOFHandler(db databaseface.Database) (*AofHandler, error) {
 	handler := &AofHandler{}
 	handler.aofFilename = config.Properties.AppendFilename
 	handler.db = db
-	handler.LoadAof()
+	handler.LoadAof(0)
 	aofFile, err := os.OpenFile(handler.aofFilename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func (handlerAof *AofHandler) writeAof(p *payload) {
 }
 
 // LoadAof read aof file
-func (handlerAof *AofHandler) LoadAof() {
+func (handlerAof *AofHandler) LoadAof(maxBytes int) {
 
 	file, err := os.Open(handlerAof.aofFilename)
 	if err != nil {
@@ -193,3 +193,5 @@ func (handlerAof *AofHandler) fsyncEverySecond() {
 		}
 	}()
 }
+
+// generateAof 重新生成一个aof文件

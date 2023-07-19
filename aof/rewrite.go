@@ -29,7 +29,7 @@ func (handlerAof *AofHandler) Rewrite() error {
 	if err != nil {
 		return err
 	}
-	handlerAof.FinishRewrite(ctx)
+	//handlerAof.FinishRewrite(ctx)
 	return nil
 }
 
