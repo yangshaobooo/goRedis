@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"goRedis/cluster"
+	"goRedis/config"
 	"goRedis/database"
 	databaaseface "goRedis/interface/database"
 	"goRedis/lib/logger"
@@ -31,7 +33,11 @@ func MakeHandler() *RespHandler {
 	var db databaaseface.Database
 
 	//db = database.NewEchoDatabase()
-	db = database.NewDatabase()
+	if config.Properties.Self != "" && len(config.Properties.Peers) > 0 {
+		db = cluster.MakeClusterDatabase()
+	} else {
+		db = database.NewStandaloneDatabase()
+	}
 	return &RespHandler{
 		db: db,
 	}

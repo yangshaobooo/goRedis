@@ -2,4 +2,4 @@ module goRedis
 
 go 1.18
 
-require github.com/yangshaobooo/goRedis v0.0.0-20230613112311-46b313a888eb // indirect
+require github.com/jolestar/go-commons-pool/v2 v2.1.2
