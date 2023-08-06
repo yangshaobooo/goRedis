@@ -1,7 +1,6 @@
 package aof
 
 import (
-	"context"
 	"goRedis/config"
 	databaseface "goRedis/interface/database"
 	"goRedis/lib/logger"
@@ -13,7 +12,6 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"time"
 )
 
 // CmdLine is alias for [][]byte, represents a command line
@@ -28,29 +26,17 @@ type payload struct {
 	dbIndex int
 }
 
-// Listener will be called-back after receiving a aof payload
-// with a listener we can forward the updates to slave nodes etc.
-type Listener interface {
-	// Callback will be called-back after receiving a aof payload
-	Callback([]CmdLine)
-}
-
 // AofHandler receive msgs from channel and write to AOF file
 type AofHandler struct {
-	ctx         context.Context
-	cancel      context.CancelFunc
 	db          databaseface.Database
 	aofChan     chan *payload
 	aofFile     *os.File
 	aofFilename string
-	currentDB   int
-	// aof goroutine will send msg to main goroutine through this channel when aof tasks finished and ready to shut down
+	// aof goroutine will send msg to main goroutine through this channel when aof tasks finished and ready to shutdown
 	aofFinished chan struct{}
 	// pause aof for start/finish aof rewrite progress
-	pausingAof sync.Mutex
-	listeners  map[Listener]struct{}
-	// reuse cmdLine buffer
-	buffer []CmdLine
+	pausingAof sync.RWMutex
+	currentDB  int
 }
 
 // NewAOFHandler creates a new aof.AofHandler
@@ -66,85 +52,75 @@ func NewAOFHandler(db databaseface.Database) (*AofHandler, error) {
 	handler.aofFile = aofFile
 	handler.aofChan = make(chan *payload, aofQueueSize)
 	handler.aofFinished = make(chan struct{})
-	handler.listeners = make(map[Listener]struct{})
-	// start aof goroutine to write aof file in background and fsync periodically if needed (see fsyncEverySecond)
 	go func() {
-		handler.listenCmd()
+		handler.handleAof()
 	}()
-	ctx, cancel := context.WithCancel(context.Background())
-	handler.ctx = ctx
-	handler.cancel = cancel
-	// 现在我们配置的就是是everysec，和redis的默认配置相同
-	if config.Properties.AppendFsync == "everysec" {
-		handler.fsyncEverySecond()
-	}
 	return handler, nil
 }
 
 // AddAof send command to aof goroutine through channel
-func (handlerAof *AofHandler) AddAof(dbIndex int, cmdLine CmdLine) {
-	if config.Properties.AppendOnly && handlerAof.aofChan != nil {
-		handlerAof.aofChan <- &payload{
+func (handler *AofHandler) AddAof(dbIndex int, cmdLine CmdLine) {
+	if config.Properties.AppendOnly && handler.aofChan != nil {
+		handler.aofChan <- &payload{
 			cmdLine: cmdLine,
 			dbIndex: dbIndex,
 		}
 	}
 }
 
-// listenCmd listen aof channel and write into file
-func (handlerAof *AofHandler) listenCmd() {
-	for p := range handlerAof.aofChan {
-		handlerAof.writeAof(p)
-	}
-	handlerAof.aofFinished <- struct{}{}
-}
-
-// writeAof write payload to file from aofChan
-func (handlerAof *AofHandler) writeAof(p *payload) {
-	// 清空数组内容，但是复用数组空间，防止频繁的创建数组
-	handlerAof.buffer = handlerAof.buffer[:0] // reuse underlying array
-	handlerAof.pausingAof.Lock()              // prevent other goroutines from pausing aof
-	defer handlerAof.pausingAof.Unlock()
-	// ensure aof is in the right database
-	if p.dbIndex != handlerAof.currentDB {
-		// select db
-		selectCmd := utils.ToCmdLine("SELECT", strconv.Itoa(p.dbIndex))
-		handlerAof.buffer = append(handlerAof.buffer, selectCmd)
-		data := reply.MakeMultiBulkReply(selectCmd).ToBytes()
-		_, err := handlerAof.aofFile.Write(data)
+// handleAof listen aof channel and write into file
+func (handler *AofHandler) handleAof() {
+	// serialized execution
+	handler.currentDB = 0
+	for p := range handler.aofChan {
+		handler.pausingAof.RLock() // prevent other goroutines from pausing aof
+		if p.dbIndex != handler.currentDB {
+			// select db
+			data := reply.MakeMultiBulkReply(utils.ToCmdLine("SELECT", strconv.Itoa(p.dbIndex))).ToBytes()
+			_, err := handler.aofFile.Write(data)
+			if err != nil {
+				logger.Warn(err)
+				continue // skip this command
+			}
+			handler.currentDB = p.dbIndex
+		}
+		data := reply.MakeMultiBulkReply(p.cmdLine).ToBytes()
+		_, err := handler.aofFile.Write(data)
 		if err != nil {
 			logger.Warn(err)
-			return
 		}
-		handlerAof.currentDB = p.dbIndex
+		handler.pausingAof.RUnlock()
 	}
-	// 没有切换数据库的情况
-	data := reply.MakeMultiBulkReply(p.cmdLine).ToBytes()
-	handlerAof.buffer = append(handlerAof.buffer, p.cmdLine)
-	_, err := handlerAof.aofFile.Write(data)
-	if err != nil {
-		logger.Warn(err)
-	}
-	// 回调函数还没写
-	//for listener := range handlerAof.listeners {
-	//	listener.Callback(handlerAof.buffer)
-	//}
-	if config.Properties.AppendFsync == "always" {
-		_ = handlerAof.aofFile.Sync() // 如果是always，那就一直刷新
-	}
+	handler.aofFinished <- struct{}{}
 }
 
 // LoadAof read aof file
-func (handlerAof *AofHandler) LoadAof(maxBytes int) {
+func (handler *AofHandler) LoadAof(maxBytes int) {
+	// delete aofChan to prevent write again
+	aofChan := handler.aofChan
+	handler.aofChan = nil
+	defer func(aofChan chan *payload) {
+		handler.aofChan = aofChan
+	}(aofChan)
 
-	file, err := os.Open(handlerAof.aofFilename)
+	file, err := os.Open(handler.aofFilename)
 	if err != nil {
+		if _, ok := err.(*os.PathError); ok {
+			return
+		}
 		logger.Warn(err)
 		return
 	}
 	defer file.Close()
-	ch := parser.ParseStream(file)
-	fakeConn := &connection.Connection{} // only used for save dbIndex
+
+	var reader io.Reader
+	if maxBytes > 0 {
+		reader = io.LimitReader(file, int64(maxBytes))
+	} else {
+		reader = file
+	}
+	ch := parser.ParseStream(reader)
+	fakeConn := &connection.FakeConn{} // only used for save dbIndex
 	for p := range ch {
 		if p.Err != nil {
 			if p.Err == io.EOF {
@@ -162,36 +138,21 @@ func (handlerAof *AofHandler) LoadAof(maxBytes int) {
 			logger.Error("require multi bulk reply")
 			continue
 		}
-		ret := handlerAof.db.Exec(fakeConn, r.Args)
+		ret := handler.db.Exec(fakeConn, r.Args)
 		if reply.IsErrorReply(ret) {
 			logger.Error("exec err", err)
 		}
 	}
 }
 
-// Fsync flusher aof file to disk
-func (handlerAof *AofHandler) Fsync() {
-	handlerAof.pausingAof.Lock()
-	if err := handlerAof.aofFile.Sync(); err != nil {
-		logger.Errorf("fsync failed: %v", err)
-	}
-	handlerAof.pausingAof.Unlock()
-}
-
-// fsyncEverySecond fsync aof file every second
-func (handlerAof *AofHandler) fsyncEverySecond() {
-	// 定时器，每秒刷一次盘
-	ticker := time.NewTicker(time.Second * 1)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				handlerAof.Fsync()
-			case <-handlerAof.ctx.Done():
-				return
-			}
+// Close gracefully stops aof persistence procedure
+func (handler *AofHandler) Close() {
+	if handler.aofFile != nil {
+		close(handler.aofChan)
+		<-handler.aofFinished // wait for aof finished
+		err := handler.aofFile.Close()
+		if err != nil {
+			logger.Warn(err)
 		}
-	}()
+	}
 }
-
-// generateAof 重新生成一个aof文件
